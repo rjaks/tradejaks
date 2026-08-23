@@ -95,7 +95,7 @@ function activateCron(client: Client, interval: ScheduleInterval): void {
 
   const cronExpression = CRON_EXPRESSIONS[interval] || CRON_EXPRESSIONS['4h'];
   currentTask = cron.schedule(cronExpression, () => {
-    triggerScheduledUpdate(client);
+    triggerScheduledUpdate(client).catch(console.error);
   });
 
   console.log(`[Scheduler] Cron scheduled with expression "${cronExpression}" (${interval}).`);

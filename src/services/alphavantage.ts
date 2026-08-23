@@ -118,9 +118,17 @@ export async function fetchEURUSD(): Promise<MarketData> {
     klines,
   };
 
+  // Evict expired cache entries before inserting new ones
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (now >= entry.expires) {
+      cache.delete(key);
+    }
+  }
+
   cache.set(cacheKey, {
     data,
-    expires: Date.now() + CACHE_TTL_MS,
+    expires: now + CACHE_TTL_MS,
   });
 
   return data;
