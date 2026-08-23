@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Events, Interaction, ChatInputCommandInteraction } from 'discord.js';
 import * as priceCommand from './commands/price';
 import * as scheduleCommand from './commands/schedule';
+import { startScheduler } from './scheduler/cron';
 
 export const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -14,6 +15,7 @@ const commands: Record<string, { execute: (interaction: ChatInputCommandInteract
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot online: ${readyClient.user.tag}`);
+  startScheduler(client);
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
