@@ -1,0 +1,6 @@
+.git
+.env
+src
+node_modules
+*.log
+schedule_state.json

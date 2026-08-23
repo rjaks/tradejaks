@@ -1,5 +1,12 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits, Events, Interaction, ChatInputCommandInteraction } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  Interaction,
+  ChatInputCommandInteraction,
+  MessageFlags,
+} from 'discord.js';
 import * as priceCommand from './commands/price';
 import * as scheduleCommand from './commands/schedule';
 import { startScheduler } from './scheduler/cron';
@@ -8,10 +15,14 @@ export const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-const commands: Record<string, { execute: (interaction: ChatInputCommandInteraction) => Promise<void> }> = {
-  price: priceCommand,
-  schedule: scheduleCommand,
-};
+// Command registry pattern using Map
+export interface CommandModule {
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+}
+
+export const commands = new Map<string, CommandModule>();
+commands.set('price', priceCommand);
+commands.set('schedule', scheduleCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot online: ${readyClient.user.tag}`);
@@ -21,7 +32,7 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  const command = commands[interaction.commandName];
+  const command = commands.get(interaction.commandName);
 
   if (!command) {
     console.error(`No command matching ${interaction.commandName} was found.`);
@@ -35,12 +46,12 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
         content: 'There was an error while executing this command!',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.reply({
         content: 'There was an error while executing this command!',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
