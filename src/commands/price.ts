@@ -10,7 +10,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   try {
     const rawSymbol = interaction.options.getString('symbol');
-    const symbol = rawSymbol ? rawSymbol.toUpperCase().trim() : getActiveSymbol();
+    // Sanitise: uppercase, trim, clamp length, strip non-alpha characters
+    const sanitised = rawSymbol ? rawSymbol.toUpperCase().trim().slice(0, 10).replace(/[^A-Z/]/g, '') : null;
+    const symbol = sanitised || getActiveSymbol();
 
     let data: MarketData;
 
@@ -23,7 +25,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setColor(0xef4444)
         .setTitle('❌ Unknown Symbol')
         .setDescription(
-          `Invalid symbol \`${rawSymbol}\`.\n\n**Valid options:**\n• \`BTCUSD\` (or \`BTC\`)\n• \`EURUSD\` (or \`EUR\`)`
+          `Invalid symbol \`${sanitised}\`.\n\n**Valid options:**\n• \`BTCUSD\` (or \`BTC\`)\n• \`EURUSD\` (or \`EUR\`)`
         )
         .setTimestamp(new Date());
 
@@ -45,6 +47,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setDescription(`Failed to retrieve market data: \`${errorMessage}\``)
       .setTimestamp(new Date());
 
-    await interaction.editReply({ embeds: [errorEmbed] });
+    try {
+      await interaction.editReply({ embeds: [errorEmbed] });
+    } catch (replyError) {
+      console.error('Failed to send error embed for /price:', replyError);
+    }
   }
 }
+

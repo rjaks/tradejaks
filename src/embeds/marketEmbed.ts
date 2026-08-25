@@ -14,6 +14,12 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
   const { symbol, price, priceChange24h, priceChangePct, high24h, low24h, volume24h } = data;
   const { stochRSI, ema, volumeSpike, range } = indicators;
 
+  // Guard: reject NaN data before building user-facing embed
+  if (isNaN(price) || isNaN(high24h) || isNaN(low24h)) {
+    throw new Error(`Cannot build embed: received NaN market data for ${symbol}`);
+  }
+
+
   // Determine embed color
   // Priority: StochRSI signal overrides price direction
   let embedColor: number;

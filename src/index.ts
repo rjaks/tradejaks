@@ -9,7 +9,17 @@ import {
 } from 'discord.js';
 import * as priceCommand from './commands/price';
 import * as scheduleCommand from './commands/schedule';
-import { startScheduler } from './scheduler/cron';
+import { startScheduler, stopScheduler } from './scheduler/cron';
+
+// --- Global error handlers (must be registered before anything else) ---
+process.on('unhandledRejection', (reason) => {
+  console.error('[Fatal] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Fatal] Uncaught Exception:', err);
+  process.exit(1);
+});
 
 export const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -60,6 +70,23 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   }
 });
 
-if (process.env.DISCORD_TOKEN) {
-  client.login(process.env.DISCORD_TOKEN);
+// --- Graceful shutdown ---
+function gracefulShutdown(signal: string): void {
+  console.log(`\n[Shutdown] Received ${signal}. Cleaning up…`);
+  stopScheduler();
+  client.destroy();
+  console.log('[Shutdown] Bot destroyed. Exiting.');
+  process.exit(0);
 }
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// --- Boot ---
+if (!process.env.DISCORD_TOKEN) {
+  console.error('DISCORD_TOKEN is not set in environment variables. Exiting.');
+  process.exit(1);
+}
+
+client.login(process.env.DISCORD_TOKEN);
+

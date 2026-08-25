@@ -10,6 +10,8 @@ import { buildMarketEmbed } from '../embeds/marketEmbed';
 
 export type ScheduleInterval = '1h' | '4h' | 'daily';
 
+const VALID_INTERVALS: ScheduleInterval[] = ['1h', '4h', 'daily'];
+
 export interface ScheduleState {
   active: boolean;
   interval: ScheduleInterval;
@@ -25,20 +27,33 @@ const CRON_EXPRESSIONS: Record<ScheduleInterval, string> = {
 };
 
 function readState(): ScheduleState {
+  const defaultState: ScheduleState = { active: false, interval: '4h' };
+
   try {
     if (fs.existsSync(STATE_FILE_PATH)) {
       const raw = fs.readFileSync(STATE_FILE_PATH, 'utf-8');
-      return JSON.parse(raw) as ScheduleState;
+      const parsed = JSON.parse(raw);
+
+      // Runtime validation — reject malformed state files
+      if (typeof parsed.active !== 'boolean') return defaultState;
+      if (!VALID_INTERVALS.includes(parsed.interval)) {
+        parsed.interval = '4h';
+      }
+
+      return parsed as ScheduleState;
     }
   } catch (error) {
     console.error('Error reading schedule_state.json:', error);
   }
-  return { active: false, interval: '4h' };
+  return defaultState;
 }
 
 function writeState(state: ScheduleState): void {
   try {
-    fs.writeFileSync(STATE_FILE_PATH, JSON.stringify(state, null, 2), 'utf-8');
+    // Atomic write: write to temp file, then rename to prevent corruption on crash
+    const tmpPath = STATE_FILE_PATH + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, STATE_FILE_PATH);
   } catch (error) {
     console.error('Error writing schedule_state.json:', error);
   }
@@ -84,6 +99,18 @@ export function startScheduler(client: Client): void {
     activateCron(client, state.interval);
   } else {
     console.log('[Scheduler] Scheduler is currently inactive.');
+  }
+}
+
+/**
+ * Stops the active cron job if one is running.
+ * Called during graceful shutdown to prevent post-destroy callbacks.
+ */
+export function stopScheduler(): void {
+  if (currentTask) {
+    currentTask.stop();
+    currentTask = null;
+    console.log('[Scheduler] Cron job stopped (shutdown).');
   }
 }
 

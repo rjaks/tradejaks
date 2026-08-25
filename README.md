@@ -61,7 +61,7 @@ Create a `.env` file in the root directory based on `.env.example`:
 3. **Configure Environment Variables**:
    ```bash
    cp .env.example .env
-   # Fill in DISCORD_TOKEN, CLIENT_ID, GUILD_ID, TARGET_CHANNEL_ID, ALPHA_VANTAGE_KEY
+   # Fill in DISCORD_TOKEN, CLIENT_ID, GUILD_ID, TARGET_CHANNEL_ID, TWELVE_DATA_KEY
    ```
 
 4. **Deploy Slash Commands to Discord**:
@@ -85,8 +85,20 @@ Create a `.env` file in the root directory based on `.env.example`:
 
 ---
 
-## Alpha Vantage Free Tier Limits & Caching
+## API Limits & Caching
 
-- Alpha Vantage free tier is limited to **25 requests per day** and **5 requests per minute**.
-- To prevent rate-limiting, `EURUSD` responses are automatically cached in-memory with a **5-minute Time-To-Live (TTL)**.
-- Consecutive requests within 5 minutes are served instantly from cache.
+- Forex data (`EURUSD`) is retrieved via Twelve Data API and cached in-memory with a **5-minute Time-To-Live (TTL)** to minimize API calls and prevent rate limits.
+- Crypto data (`BTCUSD`) is pulled directly in real-time from Binance's public API.
+
+---
+
+## Credits & Attribution
+
+- **Icon / Avatar**: The cute pup image used as the bot icon and branding was sourced from Pinterest. All rights, credits, and intellectual property for the original image belong strictly to its respective creator/owner. This project is purely non-commercial and open-source.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details.
+

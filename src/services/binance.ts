@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const API_TIMEOUT_MS = 10_000;
+
 export interface MarketData {
   symbol: string;
   price: number;
@@ -22,28 +24,61 @@ interface Binance24hrTicker {
 }
 
 export async function fetchBTCUSD(): Promise<MarketData> {
-  const [tickerRes, klinesRes] = await Promise.all([
-    axios.get<Binance24hrTicker>('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT'),
-    axios.get<Array<Array<string | number>>>('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=34'),
-  ]);
+  try {
+    const [tickerRes, klinesRes] = await Promise.all([
+      axios.get<Binance24hrTicker>('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT', {
+        timeout: API_TIMEOUT_MS,
+      }),
+      axios.get<Array<Array<string | number>>>('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=34', {
+        timeout: API_TIMEOUT_MS,
+      }),
+    ]);
 
-  const ticker = tickerRes.data;
-  const klinesRaw = klinesRes.data;
+    const ticker = tickerRes.data;
+    const klinesRaw = klinesRes.data;
 
-  // index 4: close price, index 5: volume
-  const klines = klinesRaw.map((kline) => ({
-    close: parseFloat(kline[4] as string),
-    volume: parseFloat(kline[5] as string),
-  }));
+    // index 4: close price, index 5: volume
+    const klines = klinesRaw.map((kline, idx) => {
+      const close = parseFloat(kline[4] as string);
+      const volume = parseFloat(kline[5] as string);
+      if (isNaN(close) || isNaN(volume)) {
+        throw new Error(`Invalid kline data from Binance at index ${idx}: close=${kline[4]}, volume=${kline[5]}`);
+      }
+      return { close, volume };
+    });
 
-  return {
-    symbol: 'BTCUSD',
-    price: parseFloat(ticker.lastPrice),
-    priceChange24h: parseFloat(ticker.priceChange),
-    priceChangePct: parseFloat(ticker.priceChangePercent),
-    high24h: parseFloat(ticker.highPrice),
-    low24h: parseFloat(ticker.lowPrice),
-    volume24h: parseFloat(ticker.volume),
-    klines,
-  };
+    const price = parseFloat(ticker.lastPrice);
+    const priceChange24h = parseFloat(ticker.priceChange);
+    const priceChangePct = parseFloat(ticker.priceChangePercent);
+    const high24h = parseFloat(ticker.highPrice);
+    const low24h = parseFloat(ticker.lowPrice);
+    const volume24h = parseFloat(ticker.volume);
+
+    if (isNaN(price)) {
+      throw new Error('Invalid ticker data from Binance: lastPrice is NaN');
+    }
+
+    return {
+      symbol: 'BTCUSD',
+      price,
+      priceChange24h,
+      priceChangePct,
+      high24h,
+      low24h,
+      volume24h,
+      klines,
+    };
+  } catch (error) {
+    // Surface rate-limit (429) or IP-ban (418) errors with a clear message
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      if (status === 429 || status === 418) {
+        const retryAfter = error.response.headers['retry-after'];
+        throw new Error(
+          `Binance rate limit hit (HTTP ${status}). ${retryAfter ? `Retry after ${retryAfter}s.` : 'Try again later.'}`
+        );
+      }
+    }
+    throw error;
+  }
 }

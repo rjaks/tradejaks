@@ -2,6 +2,8 @@
   "name": "tradejaks",
   "version": "1.0.0",
   "description": "Node.js + TypeScript Discord bot",
+  "license": "MIT",
+  "author": "rjaks (Adrian Reforsado)",
   "main": "dist/index.js",
   "engines": {
     "node": ">=20.0.0"
@@ -16,11 +18,10 @@
     "axios": "^1.7.9",
     "discord.js": "^14.17.3",
     "dotenv": "^16.4.7",
-    "node-cron": "^3.0.3"
+    "node-cron": "^4.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
-    "@types/node-cron": "^3.0.11",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }

@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { MarketData } from './binance';
 
+const API_TIMEOUT_MS = 10_000;
+
 const cache = new Map<string, { data: MarketData; expires: number }>();
 const CACHE_TTL_MS = 30 * 1000; // 30 seconds cache (responsive for scalping while conserving API limits)
 
@@ -62,12 +64,23 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
 
   const [quoteRes, timeSeriesRes] = await Promise.all([
     axios.get<TwelveDataQuoteResponse>(
-      `https://api.twelvedata.com/quote?symbol=EUR/USD&apikey=${apiKey}`
+      'https://api.twelvedata.com/quote', {
+        params: { symbol: 'EUR/USD', apikey: apiKey },
+        timeout: API_TIMEOUT_MS,
+      }
     ),
     axios.get<TwelveDataTimeSeriesResponse>(
-      `https://api.twelvedata.com/time_series?symbol=EUR/USD&interval=${interval}&outputsize=34&apikey=${apiKey}`
+      'https://api.twelvedata.com/time_series', {
+        params: { symbol: 'EUR/USD', interval, outputsize: 34, apikey: apiKey },
+        timeout: API_TIMEOUT_MS,
+      }
     ),
   ]);
+
+  // Handle Twelve Data rate-limit (returned as JSON body with code 429, HTTP 200)
+  if (quoteRes.data.code === 429 || timeSeriesRes.data.code === 429) {
+    throw new Error('Twelve Data rate limit reached. Try again later.');
+  }
 
   if (quoteRes.data.status === 'error' || quoteRes.data.code) {
     throw new Error(`Twelve Data Quote API error: ${quoteRes.data.message || 'Unknown error'}`);
@@ -104,6 +117,11 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   const high24h = parseFloat(quote.high);
   const low24h = parseFloat(quote.low);
 
+  // Guard against NaN from unexpected API response shapes
+  if (isNaN(price)) {
+    throw new Error('Invalid quote data from Twelve Data: close price is NaN');
+  }
+
   const marketData: MarketData = {
     symbol: 'EURUSD',
     price,
@@ -115,10 +133,12 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
     klines,
   };
 
+  // Cache with automatic eviction to prevent unbounded growth
   cache.set(cacheKey, {
     data: marketData,
     expires: Date.now() + CACHE_TTL_MS,
   });
+  setTimeout(() => cache.delete(cacheKey), CACHE_TTL_MS);
 
   return marketData;
 }
