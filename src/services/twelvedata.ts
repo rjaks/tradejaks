@@ -89,10 +89,14 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   // Twelve Data returns candles newest first (descending). We reverse them to oldest first.
   const sortedValues = [...values].reverse();
 
-  const klines: { close: number; volume: number }[] = sortedValues.map((v) => ({
-    close: parseFloat(v.close),
-    volume: 0, // Forex spot has no consolidated centralized volume
-  }));
+  const klines: { close: number; volume: number; high?: number; low?: number }[] = sortedValues.map(
+    (v) => ({
+      close: parseFloat(v.close),
+      volume: 0, // Forex spot has no consolidated centralized volume
+      high: parseFloat(v.high),
+      low: parseFloat(v.low),
+    })
+  );
 
   const price = parseFloat(quote.close);
   const priceChange24h = parseFloat(quote.change);

@@ -73,10 +73,21 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
   const emaTrendEmoji = ema.trend === 'bullish' ? '🟢' : ema.trend === 'bearish' ? '🔴' : '⚪';
   const emaFieldValue = `EMA(9): ${formatCurrency(ema.emaFast, symbol)} | EMA(21): ${formatCurrency(ema.emaSlow, symbol)}  •  ${emaTrendEmoji} ${ema.trend.toUpperCase()}`;
 
-  // Format Volume Spike info
-  const volumeSpikeFieldValue = volumeSpike.isSpike
-    ? `⚡ ${volumeSpike.spikeMultiplier}x avg — spike detected`
-    : `Normal (${volumeSpike.spikeMultiplier}x avg)`;
+  // Format Activity / Volatility / Volume Spike info
+  let activityFieldName = '🔊 Volume Spike';
+  let activityFieldValue = '';
+
+  if (volumeSpike.type === 'volatility') {
+    activityFieldName = '🔊 Pip Volatility (5m)';
+    const pipStr = volumeSpike.pips !== undefined ? `${volumeSpike.pips} pips • ` : '';
+    activityFieldValue = volumeSpike.isSpike
+      ? `⚡ ${pipStr}${volumeSpike.spikeMultiplier}x avg — volatility surge`
+      : `Normal (${pipStr}${volumeSpike.spikeMultiplier}x avg)`;
+  } else {
+    activityFieldValue = volumeSpike.isSpike
+      ? `⚡ ${volumeSpike.spikeMultiplier}x avg — spike detected`
+      : `Normal (${volumeSpike.spikeMultiplier}x avg)`;
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`📊 ${symbol}  •  Live Market Data`)
@@ -88,7 +99,7 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
       { name: '📊 24h Range', value: rangeFieldValue, inline: false },
       { name: '⚡ Stoch RSI (14, 14, 3, 3)', value: stochRSIFieldValue, inline: false },
       { name: '📉 EMA Trend (9 / 21)', value: emaFieldValue, inline: false },
-      { name: '🔊 Volume Spike', value: volumeSpikeFieldValue, inline: true }
+      { name: '🔊 ' + (volumeSpike.type === 'volatility' ? 'Pip Volatility (5m)' : 'Volume Spike'), value: activityFieldValue, inline: true }
     )
     .setFooter({ text: 'Powered by Binance & Twelve Data  •  PH Time (UTC+8)' })
     .setTimestamp(new Date());

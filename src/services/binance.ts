@@ -8,7 +8,7 @@ export interface MarketData {
   high24h: number;
   low24h: number;
   volume24h: number;
-  klines: { close: number; volume: number }[]; // 34 most recent 1h candles, oldest first
+  klines: { close: number; volume: number; high?: number; low?: number }[]; // 34 most recent candles, oldest first
 }
 
 interface Binance24hrTicker {

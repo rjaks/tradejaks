@@ -16,6 +16,8 @@ export interface EMAResult {
 export interface VolumeSpikeResult {
   isSpike: boolean;
   spikeMultiplier: number;
+  type: 'volume' | 'volatility';
+  pips?: number;
 }
 
 export interface RangeResult {
@@ -31,7 +33,7 @@ export interface IndicatorResult {
 }
 
 /**
- * Calculates standard EMA series for a given period and array of values.
+ * Standard EMA series calculation.
  */
 function calculateEMASeries(values: number[], period: number): number[] {
   if (values.length < period) {
@@ -225,26 +227,60 @@ export function calculateStochRSI(
   };
 }
 
-export function calculateVolumeSpike(klines: { close: number; volume: number }[]): VolumeSpikeResult {
+export function calculateVolumeSpike(
+  klines: { close: number; volume: number; high?: number; low?: number }[]
+): VolumeSpikeResult {
   if (klines.length === 0) {
-    return { isSpike: false, spikeMultiplier: 0 };
+    return { isSpike: false, spikeMultiplier: 0, type: 'volume' };
   }
 
   const last20 = klines.slice(-20);
   const totalVol = last20.reduce((acc, c) => acc + c.volume, 0);
 
-  // If all volumes are 0 (Forex case)
-  if (totalVol === 0) {
-    return { isSpike: false, spikeMultiplier: 0 };
+  // If volumes are available (Crypto), compute standard volume spike
+  if (totalVol > 0) {
+    const avgVol = totalVol / last20.length;
+    const currentVol = klines[klines.length - 1].volume;
+    const isSpike = currentVol > 2 * avgVol;
+    const spikeMultiplier = avgVol !== 0 ? Math.round((currentVol / avgVol) * 100) / 100 : 0;
+
+    return {
+      isSpike,
+      spikeMultiplier,
+      type: 'volume',
+    };
   }
 
-  const avgVol = totalVol / last20.length;
-  const currentVol = klines[klines.length - 1].volume;
+  // If volume is 0 (Forex), compute Pip Volatility / Candle Size surge
+  const hasCandleRanges = last20.some((c) => c.high !== undefined && c.low !== undefined);
+  if (hasCandleRanges) {
+    // 1 pip for standard forex pairs like EURUSD = 0.0001
+    const candlePips = last20.map((c) => {
+      const high = c.high ?? c.close;
+      const low = c.low ?? c.close;
+      return Math.abs(high - low) * 10000;
+    });
 
-  const isSpike = currentVol > 2 * avgVol;
-  const spikeMultiplier = avgVol !== 0 ? Math.round((currentVol / avgVol) * 100) / 100 : 0;
+    const totalPips = candlePips.reduce((acc, p) => acc + p, 0);
+    const avgPips = totalPips / candlePips.length;
+    const currentPips = Math.round(candlePips[candlePips.length - 1] * 10) / 10;
 
-  return { isSpike, spikeMultiplier };
+    const isSpike = avgPips > 0 ? currentPips > 1.8 * avgPips : false;
+    const spikeMultiplier = avgPips > 0 ? Math.round((currentPips / avgPips) * 100) / 100 : 1;
+
+    return {
+      isSpike,
+      spikeMultiplier,
+      type: 'volatility',
+      pips: currentPips,
+    };
+  }
+
+  return {
+    isSpike: false,
+    spikeMultiplier: 0,
+    type: 'volume',
+  };
 }
 
 export function calculateRange(high24h: number, low24h: number): RangeResult {
