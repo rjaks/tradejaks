@@ -6,6 +6,7 @@ import {
   Interaction,
   ChatInputCommandInteraction,
   MessageFlags,
+  Options,
 } from 'discord.js';
 import * as priceCommand from './commands/price';
 import * as scheduleCommand from './commands/schedule';
@@ -23,6 +24,29 @@ process.on('uncaughtException', (err) => {
 
 export const client = new Client({
   intents: [GatewayIntentBits.Guilds],
+  makeCache: Options.cacheWithLimits({
+    ...Options.cacheEverything(),
+    MessageManager: 0,
+    GuildMemberManager: 0,
+    UserManager: 0,
+    ThreadMemberManager: 0,
+    PresenceManager: 0,
+    ReactionManager: 0,
+    ReactionUserManager: 0,
+    GuildScheduledEventManager: 0,
+    GuildEmojiManager: 0,
+    GuildStickerManager: 0,
+    StageInstanceManager: 0,
+    VoiceStateManager: 0,
+    BaseGuildEmojiManager: 0,
+    AutoModerationRuleManager: 0,
+  }),
+  sweepers: {
+    ...Options.DefaultSweeperSettings,
+    messages: { interval: 180, lifetime: 60 },
+    users: { interval: 180, filter: () => () => true },
+    guildMembers: { interval: 180, filter: () => () => true },
+  },
 });
 
 // Command registry pattern using Map
