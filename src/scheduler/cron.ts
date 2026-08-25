@@ -4,7 +4,7 @@ import cron, { ScheduledTask } from 'node-cron';
 import { Client, TextChannel } from 'discord.js';
 import { getActiveSymbol } from '../services/router';
 import { fetchBTCUSD, MarketData } from '../services/binance';
-import { fetchEURUSD } from '../services/alphavantage';
+import { fetchEURUSD } from '../services/twelvedata';
 import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
 

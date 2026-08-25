@@ -1,13 +1,12 @@
 import { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { getActiveSymbol } from '../services/router';
 import { fetchBTCUSD, MarketData } from '../services/binance';
-import { fetchEURUSD } from '../services/alphavantage';
+import { fetchEURUSD } from '../services/twelvedata';
 import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  // Defer the reply as ephemeral=false (visible to channel)
-  await interaction.deferReply({ ephemeral: false });
+  await interaction.deferReply();
 
   try {
     const rawSymbol = interaction.options.getString('symbol');

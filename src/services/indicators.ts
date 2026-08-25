@@ -77,13 +77,20 @@ export function calculateEMA(klines: { close: number; volume: number }[], fastPe
   const fastSeries = calculateEMASeries(closes, fastPeriod);
   const slowSeries = calculateEMASeries(closes, slowPeriod);
 
-  const emaFast = Math.round(fastSeries[fastSeries.length - 1] * 100) / 100;
-  const emaSlow = Math.round(slowSeries[slowSeries.length - 1] * 100) / 100;
+  const rawEmaFast = fastSeries[fastSeries.length - 1];
+  const rawEmaSlow = slowSeries[slowSeries.length - 1];
+
+  // If price is small (Forex pairs < 10), keep 5 decimal places, otherwise 2 decimal places for Crypto
+  const isForex = (closes[closes.length - 1] || 0) < 10;
+  const multiplier = isForex ? 100000 : 100;
+
+  const emaFast = Math.round(rawEmaFast * multiplier) / multiplier;
+  const emaSlow = Math.round(rawEmaSlow * multiplier) / multiplier;
 
   let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
-  if (emaFast > emaSlow) {
+  if (rawEmaFast > rawEmaSlow) {
     trend = 'bullish';
-  } else if (emaFast < emaSlow) {
+  } else if (rawEmaFast < rawEmaSlow) {
     trend = 'bearish';
   }
 

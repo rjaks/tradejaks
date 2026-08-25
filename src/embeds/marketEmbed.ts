@@ -90,7 +90,7 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
       { name: '📉 EMA Trend (9 / 21)', value: emaFieldValue, inline: false },
       { name: '🔊 Volume Spike', value: volumeSpikeFieldValue, inline: true }
     )
-    .setFooter({ text: 'Powered by Binance & Alpha Vantage  •  PH Time (UTC+8)' })
+    .setFooter({ text: 'Powered by Binance & Twelve Data  •  PH Time (UTC+8)' })
     .setTimestamp(new Date());
 
   return embed;

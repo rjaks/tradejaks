@@ -19,7 +19,7 @@
 
 - **Multi-Market Support**:
   - **Crypto (`BTCUSD`)**: Direct real-time quotes, 24h metrics, and volume via Binance API.
-  - **Forex (`EURUSD`)**: Realtime currency exchange and intraday candle data via Alpha Vantage API.
+  - **Forex (`EURUSD`)**: Real-time quotes and 5-minute intraday candle data (optimized for scalp/momentum trading) via Twelve Data API.
 - **Smart Symbol Routing**: Automatically serves `BTCUSD` on weekends and `EURUSD` on weekdays (PH Time UTC+8) if no symbol is specified.
 - **Technical Indicators**:
   - **Stochastic RSI (14, 14, 3, 3)**: Fast `%K` and `%D` lines, Overbought (>80) / Oversold (<20) status, and Bullish/Bearish Crossover detection.
@@ -41,7 +41,7 @@ Create a `.env` file in the root directory based on `.env.example`:
 | `CLIENT_ID` | Discord Application / Client ID | From Discord Developer Portal -> General Information |
 | `GUILD_ID` | Discord Server (Guild) ID | Right-click your server -> Copy Server ID |
 | `TARGET_CHANNEL_ID` | Target Channel ID for scheduled updates | Right-click the target text channel -> Copy Channel ID |
-| `ALPHA_VANTAGE_KEY` | Alpha Vantage API Key | Free key from [alphavantage.co](https://www.alphavantage.co/support/#api-key) |
+| `TWELVE_DATA_KEY` | Twelve Data API Key | Free key from [twelvedata.com](https://twelvedata.com) |
 
 ---
 
