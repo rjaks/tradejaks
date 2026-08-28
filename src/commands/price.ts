@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { getActiveSymbol } from '../services/router';
+import { getActiveSymbol, resolveSymbol } from '../services/router';
 import { fetchBTCUSD, MarketData } from '../services/binance';
-import { fetchEURUSD } from '../services/twelvedata';
+import { fetchTwelveDataSymbol } from '../services/twelvedata';
 import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
 
@@ -11,26 +11,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   try {
     const rawSymbol = interaction.options.getString('symbol');
     // Sanitise: uppercase, trim, clamp length, strip non-alpha characters
-    const sanitised = rawSymbol ? rawSymbol.toUpperCase().trim().slice(0, 10).replace(/[^A-Z/]/g, '') : null;
+    const sanitised = rawSymbol ? rawSymbol.toUpperCase().trim().slice(0, 10).replace(/[^A-Z0-9/]/g, '') : null;
     const symbol = sanitised || getActiveSymbol();
 
-    let data: MarketData;
+    const resolved = resolveSymbol(symbol);
 
-    if (symbol === 'BTCUSD' || symbol === 'BTCUSDT' || symbol === 'BTC') {
-      data = await fetchBTCUSD();
-    } else if (symbol === 'EURUSD' || symbol === 'EUR') {
-      data = await fetchEURUSD();
-    } else {
+    if (!resolved) {
       const unknownEmbed = new EmbedBuilder()
         .setColor(0xef4444)
         .setTitle('❌ Unknown Symbol')
         .setDescription(
-          `Invalid symbol \`${sanitised}\`.\n\n**Valid options:**\n• \`BTCUSD\` (or \`BTC\`)\n• \`EURUSD\` (or \`EUR\`)`
+          `Invalid symbol \`${sanitised}\`.\n\n**Valid options:**\n• \`BTCUSD\` (or \`BTC\`)\n• \`EURUSD\` (or \`EUR\`)\n• \`XAUUSD\` (or \`GOLD\` / \`XAU\`)\n• \`GBPUSD\` (or \`GBP\`)\n• \`USDJPY\` (or \`JPY\`)\n• \`AUDUSD\` (or \`AUD\`)\n• Any Twelve Data forex/commodity pair (e.g. \`GBP/JPY\`)`
         )
         .setTimestamp(new Date());
 
       await interaction.editReply({ embeds: [unknownEmbed] });
       return;
+    }
+
+    let data: MarketData;
+
+    if (resolved.source === 'binance') {
+      data = await fetchBTCUSD();
+    } else {
+      data = await fetchTwelveDataSymbol(resolved.tdSymbol!);
     }
 
     const indicators = runIndicators(data);
@@ -54,4 +58,3 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
   }
 }
-

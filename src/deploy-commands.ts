@@ -8,7 +8,7 @@ const commands = [
     .addStringOption((option) =>
       option
         .setName('symbol')
-        .setDescription('Trading pair, e.g. BTCUSD or EURUSD')
+        .setDescription('Trading pair symbol — e.g. BTCUSD, EURUSD, XAUUSD, GBPUSD, or any Twelve Data forex/commodity pair')
         .setRequired(false)
     ),
   new SlashCommandBuilder()
@@ -34,6 +34,12 @@ const commands = [
           { name: '4h', value: '4h' },
           { name: 'daily', value: 'daily' }
         )
+    )
+    .addStringOption((option) =>
+      option
+        .setName('symbols')
+        .setDescription('Comma-separated symbols to post, e.g. EURUSD,XAUUSD (leave blank for auto)')
+        .setRequired(false)
     ),
 ].map((command) => command.toJSON());
 

@@ -47,10 +47,10 @@ interface TwelveDataTimeSeriesResponse {
 }
 
 /**
- * Fetches EUR/USD market data using Twelve Data API with 5-minute intraday candles.
+ * Fetches market data using Twelve Data API with intraday candles.
  */
-export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData> {
-  const cacheKey = `EURUSD_${interval}`;
+export async function fetchTwelveDataSymbol(symbol: string, interval: string = '5min'): Promise<MarketData> {
+  const cacheKey = `${symbol}_${interval}`;
   const cached = cache.get(cacheKey);
 
   if (cached && Date.now() < cached.expires) {
@@ -65,13 +65,13 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   const [quoteRes, timeSeriesRes] = await Promise.all([
     axios.get<TwelveDataQuoteResponse>(
       'https://api.twelvedata.com/quote', {
-        params: { symbol: 'EUR/USD', apikey: apiKey },
+        params: { symbol, apikey: apiKey },
         timeout: API_TIMEOUT_MS,
       }
     ),
     axios.get<TwelveDataTimeSeriesResponse>(
       'https://api.twelvedata.com/time_series', {
-        params: { symbol: 'EUR/USD', interval, outputsize: 34, apikey: apiKey },
+        params: { symbol, interval, outputsize: 34, apikey: apiKey },
         timeout: API_TIMEOUT_MS,
       }
     ),
@@ -123,7 +123,7 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   }
 
   const marketData: MarketData = {
-    symbol: 'EURUSD',
+    symbol: symbol.replace(/\//g, ''),
     price,
     priceChange24h,
     priceChangePct,
@@ -142,3 +142,6 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
 
   return marketData;
 }
+
+export const fetchEURUSD = (interval?: string) => fetchTwelveDataSymbol('EUR/USD', interval);
+
