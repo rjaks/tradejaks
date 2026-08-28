@@ -1,5 +1,8 @@
 {
-  "active": false,
-  "interval": "4h",
-  "symbols": []
+  "active": true,
+  "interval": "1h",
+  "symbols": [
+    "XAU/USD",
+    "EUR/USD"
+  ]
 }

@@ -6,7 +6,9 @@ import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply();
+  }
 
   try {
     const rawSymbol = interaction.options.getString('symbol');
@@ -52,7 +54,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setTimestamp(new Date());
 
     try {
-      await interaction.editReply({ embeds: [errorEmbed] });
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ embeds: [errorEmbed] });
+      } else {
+        await interaction.reply({ embeds: [errorEmbed] });
+      }
     } catch (replyError) {
       console.error('Failed to send error embed for /price:', replyError);
     }
