@@ -254,11 +254,14 @@ export function calculateVolumeSpike(
   // If volume is 0 (Forex), compute Pip Volatility / Candle Size surge
   const hasCandleRanges = last20.some((c) => c.high !== undefined && c.low !== undefined);
   if (hasCandleRanges) {
-    // 1 pip for standard forex pairs like EURUSD = 0.0001
+    // Determine pip multiplier based on price magnitude (10000 for standard forex, 100 for metals/commodities)
+    const samplePrice = last20[last20.length - 1]?.close ?? 0;
+    const pipMultiplier = samplePrice < 10 ? 10000 : 100;
+
     const candlePips = last20.map((c) => {
       const high = c.high ?? c.close;
       const low = c.low ?? c.close;
-      return Math.abs(high - low) * 10000;
+      return Math.abs(high - low) * pipMultiplier;
     });
 
     const totalPips = candlePips.reduce((acc, p) => acc + p, 0);

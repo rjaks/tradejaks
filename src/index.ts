@@ -5,6 +5,7 @@ import {
   Events,
   Interaction,
   ChatInputCommandInteraction,
+  AutocompleteInteraction,
   MessageFlags,
   Options,
 } from 'discord.js';
@@ -52,6 +53,7 @@ export const client = new Client({
 // Command registry pattern using Map
 export interface CommandModule {
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 export const commands = new Map<string, CommandModule>();
@@ -64,6 +66,18 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  if (interaction.isAutocomplete()) {
+    const command = commands.get(interaction.commandName);
+    if (!command || !command.autocomplete) return;
+
+    try {
+      await command.autocomplete(interaction);
+    } catch (error) {
+      console.error(`Error handling autocomplete for ${interaction.commandName}:`, error);
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = commands.get(interaction.commandName);

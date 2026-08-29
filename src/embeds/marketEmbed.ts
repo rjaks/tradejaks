@@ -2,11 +2,18 @@ import { EmbedBuilder } from 'discord.js';
 import { MarketData } from '../services/binance';
 import { IndicatorResult } from '../services/indicators';
 
-function formatCurrency(val: number, symbol?: string): string {
-  // If forex (e.g. EURUSD), show up to 4 or 5 decimal places if price < 10
-  if (symbol && symbol.includes('EUR') && val < 10) {
+function formatCurrency(val: number, refPrice?: number): string {
+  const p = refPrice ?? val;
+  if (p < 10) {
+    // Small forex (EUR/USD, GBP/USD, AUD/USD)
     return `$${val.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
   }
+  if (p < 500) {
+    // Mid-range: USD/JPY (~150), GBP/JPY (~195) — 2 decimal places
+    // Note: XAU/USD (~2600) falls through to the large-price branch below, which also uses 2dp
+    return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  // Crypto / large prices
   return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -18,7 +25,6 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
   if (isNaN(price) || isNaN(high24h) || isNaN(low24h)) {
     throw new Error(`Cannot build embed: received NaN market data for ${symbol}`);
   }
-
 
   // Determine embed color
   // Priority: StochRSI signal overrides price direction
@@ -43,7 +49,7 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
   const absPct = Math.abs(priceChangePct).toFixed(2);
 
   const formattedChangeStr =
-    symbol.includes('EUR') && absChange < 1
+    absChange < 1 && price < 10
       ? `${sign}$${absChange.toFixed(4)} (${sign}${absPct}%)`
       : `${sign}$${absChange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${sign}${absPct}%)`;
 
@@ -56,7 +62,7 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
       : volume24h.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
   // Format 24h Range
-  const rangeFieldValue = `${formatCurrency(low24h, symbol)} — ${formatCurrency(high24h, symbol)} (${range.rangePercent.toFixed(2)}%)`;
+  const rangeFieldValue = `${formatCurrency(low24h, price)} — ${formatCurrency(high24h, price)} (${range.rangePercent.toFixed(2)}%)`;
 
   // Format Stoch RSI info
   let stochSignalText = 'Neutral ⚪';
@@ -77,15 +83,17 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
 
   // Format EMA info
   const emaTrendEmoji = ema.trend === 'bullish' ? '🟢' : ema.trend === 'bearish' ? '🔴' : '⚪';
-  const emaFieldValue = `EMA(9): ${formatCurrency(ema.emaFast, symbol)} | EMA(21): ${formatCurrency(ema.emaSlow, symbol)}  •  ${emaTrendEmoji} ${ema.trend.toUpperCase()}`;
+  const emaFieldValue = `EMA(9): ${formatCurrency(ema.emaFast, price)} | EMA(21): ${formatCurrency(ema.emaSlow, price)}  •  ${emaTrendEmoji} ${ema.trend.toUpperCase()}`;
 
   // Format Activity / Volatility / Volume Spike info
   let activityFieldName = '🔊 Volume Spike';
   let activityFieldValue = '';
 
   if (volumeSpike.type === 'volatility') {
-    activityFieldName = '🔊 Pip Volatility (5m)';
-    const pipStr = volumeSpike.pips !== undefined ? `${volumeSpike.pips} pips • ` : '';
+    const label = price < 10 ? '🔊 Pip Volatility (5m)' : '🔊 Point Volatility (5m)';
+    activityFieldName = label;
+    const unit = price < 10 ? 'pips' : 'pts';
+    const pipStr = volumeSpike.pips !== undefined ? `${volumeSpike.pips} ${unit} • ` : '';
     activityFieldValue = volumeSpike.isSpike
       ? `⚡ ${pipStr}${volumeSpike.spikeMultiplier}x avg — volatility surge`
       : `Normal (${pipStr}${volumeSpike.spikeMultiplier}x avg)`;
@@ -99,13 +107,13 @@ export function buildMarketEmbed(data: MarketData, indicators: IndicatorResult):
     .setTitle(`📊 ${symbol}  •  Live Market Data`)
     .setColor(embedColor)
     .addFields(
-      { name: '💵 Price', value: formatCurrency(price, symbol), inline: true },
+      { name: '💵 Price', value: formatCurrency(price, price), inline: true },
       { name: '📈 24h Change', value: changeFieldValue, inline: true },
       { name: '📦 24h Volume', value: volumeFieldValue, inline: true },
       { name: '📊 24h Range', value: rangeFieldValue, inline: false },
       { name: '⚡ Stoch RSI (14, 14, 3, 3)', value: stochRSIFieldValue, inline: false },
       { name: '📉 EMA Trend (9 / 21)', value: emaFieldValue, inline: false },
-      { name: '🔊 ' + (volumeSpike.type === 'volatility' ? 'Pip Volatility (5m)' : 'Volume Spike'), value: activityFieldValue, inline: true }
+      { name: activityFieldName, value: activityFieldValue, inline: true }
     )
     .setFooter({ text: 'Powered by Binance & Twelve Data  •  PH Time (UTC+8)' })
     .setTimestamp(new Date());

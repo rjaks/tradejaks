@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 import { MarketData } from './binance';
 
 const API_TIMEOUT_MS = 10_000;
@@ -46,11 +46,19 @@ interface TwelveDataTimeSeriesResponse {
   message?: string;
 }
 
+function safeErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'isAxiosError' in error) {
+    const axiosErr = error as AxiosError;
+    return `AxiosError [${axiosErr.code ?? 'UNKNOWN'}] ${axiosErr.response?.status ?? 'no-status'}: ${axiosErr.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
- * Fetches EUR/USD market data using Twelve Data API with 5-minute intraday candles.
+ * Fetches market data using Twelve Data API with intraday candles.
  */
-export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData> {
-  const cacheKey = `EURUSD_${interval}`;
+export async function fetchTwelveDataSymbol(symbol: string, interval: string = '5min'): Promise<MarketData> {
+  const cacheKey = `${symbol}_${interval}`;
   const cached = cache.get(cacheKey);
 
   if (cached && Date.now() < cached.expires) {
@@ -65,13 +73,13 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   const [quoteRes, timeSeriesRes] = await Promise.all([
     axios.get<TwelveDataQuoteResponse>(
       'https://api.twelvedata.com/quote', {
-        params: { symbol: 'EUR/USD', apikey: apiKey },
+        params: { symbol, apikey: apiKey },
         timeout: API_TIMEOUT_MS,
       }
     ),
     axios.get<TwelveDataTimeSeriesResponse>(
       'https://api.twelvedata.com/time_series', {
-        params: { symbol: 'EUR/USD', interval, outputsize: 34, apikey: apiKey },
+        params: { symbol, interval, outputsize: 34, apikey: apiKey },
         timeout: API_TIMEOUT_MS,
       }
     ),
@@ -123,7 +131,7 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
   }
 
   const marketData: MarketData = {
-    symbol: 'EURUSD',
+    symbol: symbol.replace(/\//g, ''),
     price,
     priceChange24h,
     priceChangePct,
@@ -133,12 +141,17 @@ export async function fetchEURUSD(interval: string = '5min'): Promise<MarketData
     klines,
   };
 
-  // Cache with automatic eviction to prevent unbounded growth
-  cache.set(cacheKey, {
-    data: marketData,
-    expires: Date.now() + CACHE_TTL_MS,
-  });
-  setTimeout(() => cache.delete(cacheKey), CACHE_TTL_MS);
+  const expiresAt = Date.now() + CACHE_TTL_MS;
+  cache.set(cacheKey, { data: marketData, expires: expiresAt });
+  setTimeout(() => {
+    const entry = cache.get(cacheKey);
+    if (entry && Date.now() >= entry.expires) {
+      cache.delete(cacheKey);
+    }
+  }, CACHE_TTL_MS);
 
   return marketData;
 }
+
+export const fetchEURUSD = (interval?: string) => fetchTwelveDataSymbol('EUR/USD', interval);
+

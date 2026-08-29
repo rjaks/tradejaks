@@ -2,23 +2,26 @@ import fs from 'fs';
 import path from 'path';
 import cron, { ScheduledTask } from 'node-cron';
 import { Client, TextChannel } from 'discord.js';
-import { getActiveSymbol } from '../services/router';
+import { getActiveSymbol, resolveSymbol } from '../services/router';
 import { fetchBTCUSD, MarketData } from '../services/binance';
-import { fetchEURUSD } from '../services/twelvedata';
+import { fetchTwelveDataSymbol } from '../services/twelvedata';
 import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
 
 export type ScheduleInterval = '1h' | '4h' | 'daily';
 
 const VALID_INTERVALS: ScheduleInterval[] = ['1h', '4h', 'daily'];
+const MAX_SYMBOLS = 5;
 
 export interface ScheduleState {
   active: boolean;
   interval: ScheduleInterval;
+  symbols: string[]; // Twelve Data tdSymbol strings, e.g. ['EUR/USD', 'XAU/USD']. Empty array = auto-route by getActiveSymbol().
 }
 
 const STATE_FILE_PATH = path.resolve(process.cwd(), 'schedule_state.json');
 let currentTask: ScheduledTask | null = null;
+let isRunning = false;
 
 const CRON_EXPRESSIONS: Record<ScheduleInterval, string> = {
   '1h': '0 * * * *',
@@ -27,7 +30,7 @@ const CRON_EXPRESSIONS: Record<ScheduleInterval, string> = {
 };
 
 function readState(): ScheduleState {
-  const defaultState: ScheduleState = { active: false, interval: '4h' };
+  const defaultState: ScheduleState = { active: false, interval: '4h', symbols: [] };
 
   try {
     if (fs.existsSync(STATE_FILE_PATH)) {
@@ -38,6 +41,13 @@ function readState(): ScheduleState {
       if (typeof parsed.active !== 'boolean') return defaultState;
       if (!VALID_INTERVALS.includes(parsed.interval)) {
         parsed.interval = '4h';
+      }
+      if (!Array.isArray(parsed.symbols)) {
+        parsed.symbols = [];
+      } else {
+        parsed.symbols = (parsed.symbols as unknown[])
+          .filter((s): s is string => typeof s === 'string' && s.length > 0 && s.length <= 12)
+          .slice(0, MAX_SYMBOLS);
       }
 
       return parsed as ScheduleState;
@@ -60,12 +70,18 @@ function writeState(state: ScheduleState): void {
 }
 
 async function triggerScheduledUpdate(client: Client): Promise<void> {
+  if (isRunning) {
+    console.warn(`[Scheduler] [${new Date().toISOString()}] Previous tick still running — skipping this tick.`);
+    return;
+  }
+
   const channelId = process.env.TARGET_CHANNEL_ID;
   if (!channelId) {
     console.error('[Scheduler] TARGET_CHANNEL_ID not set in environment variables.');
     return;
   }
 
+  isRunning = true;
   try {
     const channel = await client.channels.fetch(channelId);
     if (!channel || !(channel instanceof TextChannel)) {
@@ -73,22 +89,70 @@ async function triggerScheduledUpdate(client: Client): Promise<void> {
       return;
     }
 
-    const symbol = getActiveSymbol();
-    let data: MarketData;
+    const state = readState();
+    const targets: { source: 'binance' | 'twelvedata'; tdSymbol?: string; displayName: string }[] = [];
 
-    if (symbol === 'BTCUSD') {
-      data = await fetchBTCUSD();
+    if (state.symbols && state.symbols.length > 0) {
+      for (const sym of state.symbols) {
+        const resolved = resolveSymbol(sym);
+        if (resolved) {
+          targets.push({
+            source: resolved.source,
+            tdSymbol: resolved.tdSymbol || sym,
+            displayName: sym,
+          });
+        }
+      }
     } else {
-      data = await fetchEURUSD();
+      const active = getActiveSymbol();
+      const resolved = resolveSymbol(active);
+      if (resolved) {
+        targets.push({
+          source: resolved.source,
+          tdSymbol: resolved.tdSymbol,
+          displayName: active,
+        });
+      }
     }
 
-    const indicators = runIndicators(data);
-    const embed = buildMarketEmbed(data, indicators);
+    if (targets.length === 0) {
+      console.error(
+        `[Scheduler] [${new Date().toISOString()}] No valid targets resolved from symbols: ` +
+        `[${state.symbols.join(', ')}]. Skipping tick.`
+      );
+      return;
+    }
 
-    await channel.send({ embeds: [embed] });
-    console.log(`[Scheduler] [${new Date().toISOString()}] Successfully sent scheduled market update for ${symbol} to channel ${channelId}`);
+    const postedSymbols: string[] = [];
+
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+      let data: MarketData;
+
+      if (target.source === 'binance') {
+        data = await fetchBTCUSD();
+      } else {
+        data = await fetchTwelveDataSymbol(target.tdSymbol!);
+      }
+
+      const indicators = runIndicators(data);
+      const embed = buildMarketEmbed(data, indicators);
+
+      await channel.send({ embeds: [embed] });
+      postedSymbols.push(data.symbol);
+
+      if (i < targets.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+
+    console.log(
+      `[Scheduler] [${new Date().toISOString()}] Successfully sent scheduled market update for [${postedSymbols.join(', ')}] to channel ${channelId}`
+    );
   } catch (error) {
     console.error(`[Scheduler] [${new Date().toISOString()}] Error during scheduled update execution:`, error);
+  } finally {
+    isRunning = false;
   }
 }
 
@@ -131,9 +195,10 @@ function activateCron(client: Client, interval: ScheduleInterval): void {
 export function updateScheduler(
   client: Client,
   active: boolean,
-  interval: ScheduleInterval = '4h'
+  interval: ScheduleInterval = '4h',
+  symbols: string[] = []
 ): ScheduleState {
-  const newState: ScheduleState = { active, interval };
+  const newState: ScheduleState = { active, interval, symbols };
   writeState(newState);
 
   if (active) {
