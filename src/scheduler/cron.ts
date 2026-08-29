@@ -11,6 +11,7 @@ import { buildMarketEmbed } from '../embeds/marketEmbed';
 export type ScheduleInterval = '1h' | '4h' | 'daily';
 
 const VALID_INTERVALS: ScheduleInterval[] = ['1h', '4h', 'daily'];
+const MAX_SYMBOLS = 5;
 
 export interface ScheduleState {
   active: boolean;
@@ -20,6 +21,7 @@ export interface ScheduleState {
 
 const STATE_FILE_PATH = path.resolve(process.cwd(), 'schedule_state.json');
 let currentTask: ScheduledTask | null = null;
+let isRunning = false;
 
 const CRON_EXPRESSIONS: Record<ScheduleInterval, string> = {
   '1h': '0 * * * *',
@@ -42,6 +44,10 @@ function readState(): ScheduleState {
       }
       if (!Array.isArray(parsed.symbols)) {
         parsed.symbols = [];
+      } else {
+        parsed.symbols = (parsed.symbols as unknown[])
+          .filter((s): s is string => typeof s === 'string' && s.length > 0 && s.length <= 12)
+          .slice(0, MAX_SYMBOLS);
       }
 
       return parsed as ScheduleState;
@@ -64,12 +70,18 @@ function writeState(state: ScheduleState): void {
 }
 
 async function triggerScheduledUpdate(client: Client): Promise<void> {
+  if (isRunning) {
+    console.warn(`[Scheduler] [${new Date().toISOString()}] Previous tick still running — skipping this tick.`);
+    return;
+  }
+
   const channelId = process.env.TARGET_CHANNEL_ID;
   if (!channelId) {
     console.error('[Scheduler] TARGET_CHANNEL_ID not set in environment variables.');
     return;
   }
 
+  isRunning = true;
   try {
     const channel = await client.channels.fetch(channelId);
     if (!channel || !(channel instanceof TextChannel)) {
@@ -103,6 +115,14 @@ async function triggerScheduledUpdate(client: Client): Promise<void> {
       }
     }
 
+    if (targets.length === 0) {
+      console.error(
+        `[Scheduler] [${new Date().toISOString()}] No valid targets resolved from symbols: ` +
+        `[${state.symbols.join(', ')}]. Skipping tick.`
+      );
+      return;
+    }
+
     const postedSymbols: string[] = [];
 
     for (let i = 0; i < targets.length; i++) {
@@ -131,6 +151,8 @@ async function triggerScheduledUpdate(client: Client): Promise<void> {
     );
   } catch (error) {
     console.error(`[Scheduler] [${new Date().toISOString()}] Error during scheduled update execution:`, error);
+  } finally {
+    isRunning = false;
   }
 }
 

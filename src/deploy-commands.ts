@@ -41,6 +41,7 @@ const commands = [
         .setName('symbols')
         .setDescription('Comma-separated symbols to post, e.g. EURUSD,XAUUSD (leave blank for auto)')
         .setRequired(false)
+        .setMaxLength(100)
     ),
 ].map((command) => command.toJSON());
 

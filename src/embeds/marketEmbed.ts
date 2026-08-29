@@ -9,7 +9,8 @@ function formatCurrency(val: number, refPrice?: number): string {
     return `$${val.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
   }
   if (p < 500) {
-    // Mid-range: XAU/USD (~2600 currently but keep generic), USD/JPY, GBP/JPY
+    // Mid-range: USD/JPY (~150), GBP/JPY (~195) — 2 decimal places
+    // Note: XAU/USD (~2600) falls through to the large-price branch below, which also uses 2dp
     return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   // Crypto / large prices

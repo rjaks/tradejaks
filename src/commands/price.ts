@@ -50,8 +50,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error('Error in /price command:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const safeMsg = (error && typeof error === 'object' && 'isAxiosError' in error)
+      ? `AxiosError [${(error as any).code ?? 'UNKNOWN'}] ${(error as any).response?.status ?? 'no-status'}: ${(error as any).message}`
+      : (error instanceof Error ? error.message : String(error));
+    console.error('Error in /price command:', safeMsg);
+    const errorMessage = safeMsg;
 
     const errorEmbed = new EmbedBuilder()
       .setColor(0xef4444)

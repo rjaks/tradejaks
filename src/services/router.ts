@@ -31,7 +31,7 @@ export function getAutocompleteChoices(query: string): AutocompleteChoice[] {
 
 export function resolveSymbol(raw: string): { source: 'binance' | 'twelvedata'; tdSymbol?: string } | null {
   if (!raw) return null;
-  const normalized = raw.toUpperCase().trim().replace(/[^A-Z0-9/]/g, '');
+  const normalized = raw.toUpperCase().trim().replace(/[^A-Z0-9/]/g, '').slice(0, 12);
   if (!normalized) return null;
 
   // Binance crypto

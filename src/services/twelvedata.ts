@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 import { MarketData } from './binance';
 
 const API_TIMEOUT_MS = 10_000;
@@ -44,6 +44,14 @@ interface TwelveDataTimeSeriesResponse {
   status?: string;
   code?: number;
   message?: string;
+}
+
+function safeErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'isAxiosError' in error) {
+    const axiosErr = error as AxiosError;
+    return `AxiosError [${axiosErr.code ?? 'UNKNOWN'}] ${axiosErr.response?.status ?? 'no-status'}: ${axiosErr.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -133,12 +141,14 @@ export async function fetchTwelveDataSymbol(symbol: string, interval: string = '
     klines,
   };
 
-  // Cache with automatic eviction to prevent unbounded growth
-  cache.set(cacheKey, {
-    data: marketData,
-    expires: Date.now() + CACHE_TTL_MS,
-  });
-  setTimeout(() => cache.delete(cacheKey), CACHE_TTL_MS);
+  const expiresAt = Date.now() + CACHE_TTL_MS;
+  cache.set(cacheKey, { data: marketData, expires: expiresAt });
+  setTimeout(() => {
+    const entry = cache.get(cacheKey);
+    if (entry && Date.now() >= entry.expires) {
+      cache.delete(cacheKey);
+    }
+  }, CACHE_TTL_MS);
 
   return marketData;
 }
