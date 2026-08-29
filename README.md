@@ -17,16 +17,20 @@
 
 ## Features
 
-- **Multi-Market Support**:
-  - **Crypto (`BTCUSD`)**: Direct real-time quotes, 24h metrics, and volume via Binance API.
-  - **Forex (`EURUSD`)**: Real-time quotes and 5-minute intraday candle data (optimized for scalp/momentum trading) via Twelve Data API.
-- **Smart Symbol Routing**: Automatically serves `BTCUSD` on weekends and `EURUSD` on weekdays (PH Time UTC+8) if no symbol is specified.
+- **Multi-Market & Multi-Symbol Support**:
+  - **Crypto**: Real-time quotes, 24h metrics, and volume via Binance API (e.g., `BTC/USDT`, `ETH/USDT`, `SOL/USDT`).
+  - **Forex, Commodities & Stocks**: Real-time quotes and intraday candle data via Twelve Data API (e.g., `EUR/USD`, `GBP/USD`, `USD/JPY`, `XAU/USD`, `SPY`, `QQQ`).
+- **Interactive Autocomplete**:
+  - Built-in search suggestions for symbols in slash commands (`/price` and `/schedule`).
+- **Smart Symbol Routing & Scheduling**:
+  - Automatically alternates between `EURUSD` (weekdays) and `BTCUSD` (weekends) if no symbols are configured.
+  - Supports broadcasting multiple symbols in a single scheduled embed.
 - **Technical Indicators**:
   - **Stochastic RSI (14, 14, 3, 3)**: Fast `%K` and `%D` lines, Overbought (>80) / Oversold (<20) status, and Bullish/Bearish Crossover detection.
   - **EMA Trend (9 & 21)**: Exponential Moving Average price levels and Trend alignment (BULLISH / BEARISH).
   - **Volume Spike Detector**: 20-period Moving Average comparison (flags 2x+ spikes).
   - **24h Range**: High-Low volatility range and percentage calculation.
-- **Automated Scheduling**: Scheduled Discord channel updates (`1h`, `4h`, or `daily` at 8:00 PM PH Time / US Open) using persistent cron jobs.
+- **Automated Scheduling**: Scheduled Discord channel updates (`1h`, `4h`, or `daily` at 8:00 PM PH Time / US Open) with overlap mutex guards and error isolation.
 - **Color-Coded Rich Embeds**: Dynamic Discord card styling based on technical indicators and price momentum.
 
 ---
@@ -80,15 +84,15 @@ Create a `.env` file in the root directory based on `.env.example`:
 
 | Command | Options | Description |
 | :--- | :--- | :--- |
-| `/price` | `symbol` *(optional)* | Fetch current price and indicator analysis for `BTCUSD` or `EURUSD`. Defaults to active market based on day of week. |
-| `/schedule` | `action` *(required: `on` \| `off`)*<br>`interval` *(optional: `1h` \| `4h` \| `daily`)* | Turn automated market posting ON or OFF. Requires `Manage Server` permission. Default interval is `4h` (`daily` posts at 8:00 PM UTC+8). |
+| `/price` | `symbol` *(optional, with autocomplete)* | Fetch current price and indicator analysis for a specific symbol (or multiple symbols separated by comma). Defaults to active market based on day of week. |
+| `/schedule` | `action` *(required: `on` \| `off`)*<br>`interval` *(optional: `1h` \| `4h` \| `daily`)*<br>`symbols` *(optional)* | Turn automated market posting ON or OFF. Configure custom intervals and specific symbols to track. Requires `Manage Server` permission. |
 
 ---
 
 ## API Limits & Caching
 
-- Forex data (`EURUSD`) is retrieved via Twelve Data API and cached in-memory with a **5-minute Time-To-Live (TTL)** to minimize API calls and prevent rate limits.
-- Crypto data (`BTCUSD`) is pulled directly in real-time from Binance's public API.
+- Forex, Commodity, and Stock data is retrieved via Twelve Data API and cached in-memory with a **5-minute Time-To-Live (TTL)** to minimize API calls and prevent rate limits.
+- Crypto data is pulled directly in real-time from Binance's public API.
 
 ---
 
