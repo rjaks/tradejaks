@@ -10,6 +10,7 @@ const commands = [
         .setName('symbol')
         .setDescription('Trading pair symbol — e.g. BTCUSD, EURUSD, XAUUSD, GBPUSD, or any Twelve Data forex/commodity pair')
         .setRequired(false)
+        .setAutocomplete(true)
     ),
   new SlashCommandBuilder()
     .setName('schedule')

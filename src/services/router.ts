@@ -3,6 +3,32 @@ export interface ResolvedSymbol {
   tdSymbol?: string;
 }
 
+export interface AutocompleteChoice {
+  name: string;
+  value: string;
+}
+
+export const AUTOCOMPLETE_SYMBOLS: AutocompleteChoice[] = [
+  { name: 'BTC/USD (Bitcoin - Binance)', value: 'BTCUSD' },
+  { name: 'EUR/USD (Euro / US Dollar)', value: 'EURUSD' },
+  { name: 'XAU/USD (Gold - Commodity)', value: 'XAUUSD' },
+  { name: 'GBP/USD (British Pound / US Dollar)', value: 'GBPUSD' },
+  { name: 'USD/JPY (US Dollar / Japanese Yen)', value: 'USDJPY' },
+  { name: 'GBP/JPY (British Pound / Japanese Yen)', value: 'GBPJPY' },
+  { name: 'AUD/USD (Australian Dollar / US Dollar)', value: 'AUDUSD' },
+];
+
+export function getAutocompleteChoices(query: string): AutocompleteChoice[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) {
+    return AUTOCOMPLETE_SYMBOLS.slice(0, 25);
+  }
+
+  return AUTOCOMPLETE_SYMBOLS.filter(
+    (item) => item.name.toLowerCase().includes(trimmed) || item.value.toLowerCase().includes(trimmed)
+  ).slice(0, 25);
+}
+
 export function resolveSymbol(raw: string): { source: 'binance' | 'twelvedata'; tdSymbol?: string } | null {
   if (!raw) return null;
   const normalized = raw.toUpperCase().trim().replace(/[^A-Z0-9/]/g, '');

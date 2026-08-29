@@ -1,9 +1,15 @@
-import { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { getActiveSymbol, resolveSymbol } from '../services/router';
+import { AutocompleteInteraction, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { getActiveSymbol, getAutocompleteChoices, resolveSymbol } from '../services/router';
 import { fetchBTCUSD, MarketData } from '../services/binance';
 import { fetchTwelveDataSymbol } from '../services/twelvedata';
 import { runIndicators } from '../services/indicators';
 import { buildMarketEmbed } from '../embeds/marketEmbed';
+
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  const focusedValue = interaction.options.getFocused();
+  const choices = getAutocompleteChoices(focusedValue);
+  await interaction.respond(choices);
+}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.deferred && !interaction.replied) {
